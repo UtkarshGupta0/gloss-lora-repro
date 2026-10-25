@@ -13,8 +13,8 @@ and the likely reason points at a specific, testable mechanism.
 ## Bug found and fixed
 
 `main.py` saves the best-validation-F1 checkpoint to `checkpoint.pth` during
-training, but at test time it evaluates whatever state `train_model` returns
-— the final epoch (the early-stopping point), not the best one. On my first
+training, but at test time it evaluates whatever state `train_model` returns.
+Which is the final epoch (the early-stopping point), not the best one. On my first
 run this cost ~1.4 points of test F1. Patch: `patches/checkpoint-fix-and-seed-flag.diff`
 (also adds a `--seed` CLI flag, hardcoded to 42 in the original).
 
@@ -22,7 +22,7 @@ run this cost ~1.4 points of test F1. Patch: `patches/checkpoint-fix-and-seed-fl
 
 Hardware forced batch_size=16 (DistilBERT + Adam on a 4GB Quadro P2000),
 vs. the paper's default of 128. Dataset: R8. Model: distilbert-base-uncased.
-3 seeds (42, 7, 123) — not the paper's full seed count, GPU-time constrained.
+I was limited to 3 seeds (42, 7, 123) not the paper's full seed count, GPU-time constrained.
 
 ## Results
 
@@ -42,21 +42,21 @@ Per-seed breakdown (CE − G-Loss, F1):
 
 ## Interpretation
 
-G-Loss loses on 2/3 seeds but wins on the third — not uniformly worse, just
+G-Loss loses on 2/3 seeds but wins on the third, not uniformly worse, just
 noisier, and a paired comparison across seeds doesn't clear significance at
-n=3. What *is* consistent: G-Loss's variance (±0.74 F1) is over 3x CE's
+such low number of trials . What *is* consistent: G-Loss's variance (±0.74 F1) is over 3x CE's
 (±0.21 F1).
 
 **Hypothesis:** `predict_lpa` builds its label-propagation graph over the
 mini-batch itself, not the full dataset. At batch_size=16 vs. the paper's
-128, G-Loss gets roughly 8x fewer points to propagate labels across — which
+128, G-Loss gets roughly 8x fewer points to propagate labels across , which
 would explain both the accuracy gap and the elevated variance, independent
 of whether the method is sound at full batch size.
 
 **Open question, not yet tested:** does G-Loss's benefit return at larger
 batch sizes, and is there a way to decouple graph size from the
 memory-bound training batch size (e.g. a cached embedding pool rather than
-only the current batch)? Gradient accumulation doesn't work here — the
+only the current batch)? Gradient accumulation also wpuldn't work here, the
 method backprops through a `torch.linalg.solve` coupling every point in the
 batch, so it isn't decomposable into independent per-example terms the way
 CE is.
