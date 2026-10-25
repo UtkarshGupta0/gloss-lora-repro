@@ -1,0 +1,41 @@
+diff --git a/Combined with CE/config.py b/Combined with CE/config.py
+index 9bc125a..41c50ae 100644
+--- a/Combined with CE/config.py	
++++ b/Combined with CE/config.py	
+@@ -28,6 +28,7 @@ def parse_arguments():
+     parser.add_argument('--optuna_trials', type=int, default=15, help='Number of Optuna trials')
+     parser.add_argument('--optuna_sigma', default=None, type=float, help='Fallback value of sigma if computed sigma 0')
+     parser.add_argument('--optuna_storage', type=str, default=None, help='Optuna storage URI (e.g., sqlite:///optuna_study.db)')
++    parser.add_argument('--seed', type=int, default=42, help='Random seed')
+     parser.add_argument('--optuna_results', type=str, default='optuna_best_params.json', help='JSON file with best parameters from Optuna')
+     
+     return parser.parse_args()
+diff --git a/Combined with CE/main.py b/Combined with CE/main.py
+index eebf4e1..e037e1c 100644
+--- a/Combined with CE/main.py	
++++ b/Combined with CE/main.py	
+@@ -61,10 +61,10 @@ def main():
+     args.checkpoint_dir = ckpt_dir
+ 
+     # Set random seeds
+-    torch.manual_seed(42)
+-    np.random.seed(42)
++    torch.manual_seed(args.seed)
++    np.random.seed(args.seed)
+     if torch.cuda.is_available():
+-        torch.cuda.manual_seed(42)
++        torch.cuda.manual_seed(args.seed)
+ 
+     # Load data
+     data_dir = f"../data/{args.dataset}/"
+@@ -110,6 +110,10 @@ def main():
+     model, best_val_f1 = train_model(args, model, train_loader, val_loader, optimizer, class_weights, num_labels, ckpt_dir, logger, device)
+     logger.info(f"Best validation F1 score: {best_val_f1:.4f}")
+     
++    # Load the true best-epoch checkpoint (train_model returns final-epoch weights, not best)
++    best_ckpt = torch.load(os.path.join(ckpt_dir, 'checkpoint.pth'))
++    model.load_state_dict(best_ckpt['model_state_dict'])
++
+     # Save best model
+     torch.save({
+         'model': model.state_dict(),
